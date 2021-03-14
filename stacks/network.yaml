@@ -1,0 +1,159 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Public and private network
+Parameters:
+  env:
+    Type: String
+    AllowedValues:
+      - dev
+      - stg
+      - prod
+    Description: Environment type (one of dev, stg, prod)
+
+  space:
+    Type: String
+    Description: Environment name
+    AllowedPattern: ^[a-z0-9]+$
+
+  cidrx:
+    Type: Number
+    Description: Number that defines the second octect of the VPC Cidr Block (10.x.0.0/16)
+    MinValue: 0
+    MaxValue: 254
+    Default: 0
+
+  TrustedNetworks:
+    Type: String
+    Description: Prefix List about trusted internet subnets that can connect toward the Bastion Host
+
+  BastionHostKeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: SSH Key that grants access to Bastion Host
+
+  BastionHostRoute53Zone:
+    Type: AWS::Route53::HostedZone::Id
+    Description: Route 53 Zone where the Bastion Host register its DNS public name (ex. dev-space1.domain.tld)
+
+Resources:
+  Vpc:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        env: !Ref env
+        space: !Ref space
+        cidrx: !Ref cidrx
+      Tags:
+        - Key: Name
+          Value: !Sub "${env}-${space}-Vpc"
+        - Key: env
+          Value: !Ref env
+        - Key: space
+          Value: !Ref space
+      TemplateURL: network/vpc.yaml
+
+  PublicNetworks:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        env: !Ref env
+        space: !Ref space
+        cidrx: !Ref cidrx
+        Vpc: !GetAtt Vpc.Outputs.Vpc
+        InternetGatewayId: !GetAtt Vpc.Outputs.InternetGatewayId
+        AvailabilityZone0: !Select [0, Fn::GetAZs: ""]
+        AvailabilityZone1: !Select [1, Fn::GetAZs: ""]
+      Tags:
+        - Key: Name
+          Value: !Sub "${env}-${space}-PublicNetworks"
+        - Key: env
+          Value: !Ref env
+        - Key: space
+          Value: !Ref space
+      TemplateURL: network/public-networks.yaml
+
+  PrivateNetworks:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        env: !Ref env
+        space: !Ref space
+        cidrx: !Ref cidrx
+        Vpc: !GetAtt Vpc.Outputs.Vpc
+        NatSubnet: !GetAtt PublicNetworks.Outputs.PublicSubnet0
+        AvailabilityZone0: !Select [ 0, Fn::GetAZs: "" ]
+        AvailabilityZone1: !Select [ 1, Fn::GetAZs: "" ]
+      Tags:
+        - Key: Name
+          Value: !Sub "${env}-${space}-PrivateNetworks"
+        - Key: env
+          Value: !Ref env
+        - Key: space
+          Value: !Ref space
+      TemplateURL: network/private-networks.yaml
+
+  BastionHostRole:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: network/bastion-host-role.yaml
+      Parameters:
+        env: !Ref env
+        space: !Ref space
+        BastionHostRoute53Zone: !Ref BastionHostRoute53Zone
+
+  BastionHost:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        env: !Ref env
+        space: !Ref space
+        Vpc: !GetAtt Vpc.Outputs.Vpc
+        BastionHostSubnet: !GetAtt PublicNetworks.Outputs.PublicSubnet0
+        TrustedNetworks: !Ref TrustedNetworks
+        BastionHostKeyName: !Ref BastionHostKeyName
+        BastionHostRoute53Zone: !Ref BastionHostRoute53Zone
+        BastionHostRole: !GetAtt BastionHostRole.Outputs.BastionHostRole
+      Tags:
+        - Key: Name
+          Value: !Sub "${env}-${space}-BastionHost"
+        - Key: env
+          Value: !Ref env
+        - Key: space
+          Value: !Ref space
+      TemplateURL: network/bastion-host.yaml
+
+# OUTPUTS #####################
+Outputs:
+  Vpc:
+    Description: VPV ID
+    Value: !GetAtt Vpc.Outputs.Vpc
+    Export:
+      Name: !Sub "${env}-${space}-Vpc"
+
+  VpcCidr:
+    Description: VPC CDIR
+    Value: !GetAtt Vpc.Outputs.VpcCidr
+    Export:
+      Name: !Sub "${env}-${space}-VpcCidr"
+
+  PublicSubnet0:
+    Description: Public Subnet 0
+    Value: !GetAtt PublicNetworks.Outputs.PublicSubnet0
+    Export:
+      Name: !Sub "${env}-${space}-PublicSubnet0"
+
+  PublicSubnet1:
+    Description: Public Subnet 1
+    Value: !GetAtt PublicNetworks.Outputs.PublicSubnet1
+    Export:
+      Name: !Sub "${env}-${space}-PublicSubnet1"
+
+  PrivateSubnet0:
+    Description: Private Subnet 0
+    Value: !GetAtt PrivateNetworks.Outputs.PrivateSubnet0
+    Export:
+      Name: !Sub "${env}-${space}-PrivateSubnet0"
+
+  PrivateSubnet1:
+    Description: Private Subnet 1
+    Value: !GetAtt PrivateNetworks.Outputs.PrivateSubnet1
+    Export:
+      Name: !Sub "${env}-${space}-PrivateSubnet1"

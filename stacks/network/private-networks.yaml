@@ -1,0 +1,160 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  env:
+    Type: String
+    AllowedValues:
+      - dev
+      - stg
+      - prod
+
+  space:
+    Type: String
+    AllowedPattern: ^[a-z0-9]+$
+
+  cidrx:
+    Type: Number
+    MinValue: 0
+    MaxValue: 254
+    Default: 0
+
+  Vpc:
+    Type: AWS::EC2::VPC::Id
+
+  NatSubnet:
+    Type: AWS::EC2::Subnet::Id
+
+  AvailabilityZone0:
+    Type: AWS::EC2::AvailabilityZone::Name
+
+  AvailabilityZone1:
+    Type: AWS::EC2::AvailabilityZone::Name
+
+Mappings:
+  NatInstanceAMI:
+    us-east-1:
+      "HVM64": ami-0c09e99c7d9bb3ec3
+
+Resources:
+# NAT Gateway ####################
+  NatSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref Vpc
+      GroupDescription: Allow outbound traffic
+      SecurityGroupIngress:
+        - CidrIp: !Sub "10.${cidrx}.110.0/24"
+          IpProtocol: "-1"
+          Description: Allow incoming traffic from private subnet 0
+        - CidrIp: !Sub "10.${cidrx}.111.0/24"
+          IpProtocol: "-1"
+          Description: Allow incoming traffic from private subnet 1
+      Tags:
+        - Key: Name
+          Value: !Sub "${env}-${space}-nat-sg-0"
+        - Key: env
+          Value: !Ref env
+        - Key: space
+          Value: !Ref space
+
+  NatInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !FindInMap [NatInstanceAMI, !Ref "AWS::Region", HVM64]
+      InstanceType: t2.micro
+      SourceDestCheck: false
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            DeleteOnTermination: True
+            VolumeSize: 8
+            VolumeType: standard
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeviceIndex: "0"
+          GroupSet:
+            - !Ref NatSecurityGroup
+          SubnetId: !Ref NatSubnet
+      Tags:
+        - Key: Name
+          Value: !Sub "${env}-${space}-nat-0"
+        - Key: env
+          Value: !Ref env
+        - Key: space
+          Value: !Ref space
+
+
+# private routes ####################
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${env}-${space}-private-route"
+        - Key: env
+          Value: !Ref env
+        - Key: space
+          Value: !Ref space
+
+
+  RouteToNAT:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      InstanceId: !Ref NatInstance
+
+# private subnets ###################
+  PrivateSubnet0:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Sub "10.${cidrx}.110.0/24"
+      AvailabilityZone: !Ref AvailabilityZone0
+      Tags:
+        - Key: Name
+          Value: !Sub "${env}-${space}-private-subnet-0"
+        - Key: env
+          Value: !Ref env
+        - Key: space
+          Value: !Ref space
+
+  AssociatePrivateSubnet0ToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PrivateSubnet0
+      RouteTableId:
+        Ref: PrivateRouteTable
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Sub "10.${cidrx}.111.0/24"
+      AvailabilityZone: !Ref AvailabilityZone1
+      Tags:
+        - Key: Name
+          Value: !Sub "${env}-${space}-private-subnet-1"
+        - Key: env
+          Value: !Ref env
+        - Key: space
+          Value: !Ref space
+
+  AssociatePrivateSubnet1ToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PrivateSubnet1
+      RouteTableId:
+        Ref: PrivateRouteTable
+
+# OUTPUTS #####################
+Outputs:
+  PrivateSubnet0:
+    Description: Private Subnet 0
+    Value: !Ref PrivateSubnet0
+
+  PrivateSubnet1:
+    Description: Private Subnet 1
+    Value: !Ref PrivateSubnet1

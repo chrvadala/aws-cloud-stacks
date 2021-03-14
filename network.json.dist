@@ -1,0 +1,26 @@
+[
+  {
+    "ParameterKey": "env",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "space",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "cidrx",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "BastionHostKeyName",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "TrustedNetworks",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "BastionHostRoute53Zone",
+    "ParameterValue": ""
+  }
+]

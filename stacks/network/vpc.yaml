@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  env:
+    Type: String
+    AllowedValues:
+      - dev
+      - stg
+      - prod
+
+  space:
+    Type: String
+    AllowedPattern: ^[a-z0-9]+$
+
+  cidrx:
+    Type: Number
+    MinValue: 0
+    MaxValue: 254
+    Default: 0
+
+Resources:
+# vpc #######################
+  vpc0:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Sub "10.${cidrx}.0.0/16"
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${env}-${space}-vpc-1"
+        - Key: env
+          Value: !Ref env
+        - Key: space
+          Value: !Ref space
+
+# ig ########################
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Sub "${env}-${space}-ig"
+      - Key: env
+        Value: !Ref env
+      - Key: space
+        Value: !Ref space
+
+  AttachInternetGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId:
+        Ref: vpc0
+      InternetGatewayId:
+        Ref: InternetGateway
+
+
+# OUTPUTS #####################
+Outputs:
+  Vpc:
+    Description: vpc
+    Value: !Ref vpc0
+
+  InternetGatewayId:
+    Description: InternetGateway
+    Value: !Ref InternetGateway
+
+  VpcCidr:
+    Description: vpc CDIR
+    Value: !Sub "10.${cidrx}.0.0/16"

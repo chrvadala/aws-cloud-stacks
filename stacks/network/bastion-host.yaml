@@ -1,0 +1,155 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+####### PARAMETERS
+Parameters:
+  env:
+    Type: String
+    AllowedValues:
+      - dev
+      - stg
+      - prod
+
+  space:
+    Type: String
+    AllowedPattern: ^[a-z0-9]+$
+
+  Vpc:
+    Type: AWS::EC2::VPC::Id
+
+  BastionHostSubnet:
+    Type: AWS::EC2::Subnet::Id
+
+  TrustedNetworks:
+    Type: String
+
+  BastionHostKeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+
+  BastionHostRoute53Zone:
+    Type: AWS::Route53::HostedZone::Id
+
+  BastionHostRole:
+    Type: String
+    Description: Bastion Host Role (needed the following actions ["route53:ChangeResourceRecordSets", "route53:GetHostedZone"])
+
+####### MAPPINGS
+Mappings:
+  BastionHostAMI:
+    us-east-1:
+      HVM64: ami-047a51fa27710816e
+
+
+####### RESOURCES
+Resources:
+  BastionHostSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref Vpc
+      GroupDescription: Allow inbound traffic from trusted networks
+      SecurityGroupIngress:
+        - SourcePrefixListId: !Ref TrustedNetworks
+          FromPort: 22
+          ToPort: 22
+          IpProtocol: tcp
+          Description: Allow incoming SSH traffic from trusted network
+      Tags:
+        - Key: Name
+          Value: !Sub "${env}-${space}-bastion-host-sg-0"
+        - Key: env
+          Value: !Ref env
+        - Key: space
+          Value: !Ref space
+
+  BastionHost:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !FindInMap [ BastionHostAMI, !Ref "AWS::Region", HVM64 ]
+      InstanceType: t2.micro
+      KeyName: !Ref BastionHostKeyName
+      IamInstanceProfile: !Ref BastionHostRole
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            DeleteOnTermination: True
+            VolumeSize: 8
+            VolumeType: standard
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeviceIndex: "0"
+          GroupSet:
+            - !Ref BastionHostSecurityGroup
+          SubnetId: !Ref BastionHostSubnet
+      Tags:
+        - Key: Name
+          Value: !Sub "${env}-${space}-bastion-host"
+        - Key: env
+          Value: !Ref env
+        - Key: space
+          Value: !Ref space
+      UserData:
+        'Fn::Base64': !Sub |
+          #!/bin/bash -ex
+           yum update -y aws-cfn-bootstrap
+          /opt/aws/bin/cfn-init -v -s ${AWS::StackName} -r BastionHost --region ${AWS::Region}
+
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          default: [ Install ]
+
+        Install:
+          files:
+            "/home/ec2-user/update-route53-record.sh":
+              mode: "000700"
+              owner: "ec2-user"
+              group: "ec2-user"
+              content: !Sub |
+                #!/usr/bin/env bash
+                set -ex
+                sleep 10
+                BASE_DNS=$(aws route53 get-hosted-zone --id ${BastionHostRoute53Zone} --query "HostedZone.Name" --output text)
+                DNS="${env}-${space}.${!BASE_DNS}"
+                IP=$(curl http://instance-data/latest/meta-data/public-ipv4)
+                cat > /tmp/update_record.json <<EOF
+                {
+                  "Changes": [
+                    {
+                      "Action": "UPSERT",
+                      "ResourceRecordSet": {
+                        "Name": "${!DNS}",
+                        "Type": "A",
+                        "TTL": 60,
+                        "ResourceRecords": [
+                          {
+                            "Value": "${!IP}"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+                EOF
+                aws route53 change-resource-record-sets --hosted-zone-id ${BastionHostRoute53Zone} --change-batch file:///tmp/update_record.json
+            "/etc/systemd/system/update-route53-record.service":
+              mode: "000700"
+              owner: "ec2-user"
+              group: "ec2-user"
+              content: |
+                [Service]
+                User=ec2-user
+                ExecStart=/home/ec2-user/update-route53-record.sh
+                [Install]
+                WantedBy=default.target
+          services:
+            sysvinit:
+              update-route53-record:
+                enabled: "true"
+                ensureRunning: "true"
+                files:
+                  - "/home/ec2-user/update-route53-record.sh"
+
+####### OUTPUTS
+Outputs:
+  BastionHost:
+    Description: BastionHost
+    Value: !Ref BastionHost

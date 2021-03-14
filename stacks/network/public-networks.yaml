@@ -1,0 +1,107 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  env:
+    Type: String
+    AllowedValues:
+      - dev
+      - stg
+      - prod
+
+  space:
+    Type: String
+    AllowedPattern: ^[a-z0-9]+$
+
+  cidrx:
+    Type: Number
+    MinValue: 0
+    MaxValue: 254
+    Default: 0
+
+  Vpc:
+    Type: AWS::EC2::VPC::Id
+
+  InternetGatewayId:
+    Type: String
+
+  AvailabilityZone0:
+    Type: AWS::EC2::AvailabilityZone::Name
+
+  AvailabilityZone1:
+    Type: AWS::EC2::AvailabilityZone::Name
+
+Resources:
+# public routes ####################
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${env}-${space}-public-route"
+        - Key: env
+          Value: !Ref env
+        - Key: space
+          Value: !Ref space
+
+  RouteToIg:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGatewayId
+
+# public subnets ###################
+  PublicSubnet0:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Sub "10.${cidrx}.10.0/24"
+      AvailabilityZone: !Ref AvailabilityZone0
+      Tags:
+        - Key: Name
+          Value: !Sub "${env}-${space}-public-subnet-0"
+        - Key: env
+          Value: !Ref env
+        - Key: space
+          Value: !Ref space
+
+  AssociatePublicSubnet0ToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PublicSubnet0
+      RouteTableId:
+        Ref: PublicRouteTable
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Sub "10.${cidrx}.11.0/24"
+      AvailabilityZone: !Ref AvailabilityZone1
+      Tags:
+        - Key: Name
+          Value: !Sub "${env}-${space}-public-subnet-1"
+        - Key: env
+          Value: !Ref env
+        - Key: space
+          Value: !Ref space
+
+  AssociatePublicSubnet1ToRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PublicSubnet1
+      RouteTableId:
+        Ref: PublicRouteTable
+
+
+# OUTPUTS #####################
+Outputs:
+  PublicSubnet0:
+    Description: Public Subnet 0
+    Value: !Ref PublicSubnet0
+
+  PublicSubnet1:
+    Description: Public Subnet 1
+    Value: !Ref PublicSubnet1
