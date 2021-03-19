@@ -25,4 +25,4 @@ jobs:
           pip install cfn-lint
         
       - name: Validate Cloudformation templates
-        run: cfn-lint ./stacks/**/*.yaml
+        run: cfn-lint -I ./stacks/**/*.yaml
