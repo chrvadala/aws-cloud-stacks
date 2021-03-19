@@ -3,6 +3,7 @@
 AWS CloudFormation stacks that speed-up projects development.
 
 [![chrvadala](https://img.shields.io/badge/website-chrvadala-orange.svg)](https://chrvadala.github.io)
+[![Test](https://github.com/chrvadala/aws-cloud-stacks/actions/workflows/test.yml/badge.svg)](https://github.com/chrvadala/aws-cloud-stacks/actions)
 [![Donate](https://img.shields.io/badge/donate-PayPal-green.svg)](https://www.paypal.me/chrvadala/25)
 
 # Stacks
