@@ -89,6 +89,8 @@ Resources:
       UserData:
         'Fn::Base64': !Sub |
           #!/bin/bash -ex
+          sudo hostname ${env}-${space}-bastion-host
+          echo ${env}-${space}-bastion-host > /etc/hostname
           sudo apt update
           sudo apt -y install python3-pip python-setuptools awscli
           sudo pip3 install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
