@@ -32,7 +32,7 @@ Parameters:
 Mappings:
   NatInstanceAMI:
     us-east-1:
-      "HVM64": ami-0c09e99c7d9bb3ec3
+      "HVM64": ami-042e8287309f5df03
 
 Resources:
 # NAT Gateway ####################
@@ -81,7 +81,54 @@ Resources:
           Value: !Ref env
         - Key: space
           Value: !Ref space
+      UserData:
+        'Fn::Base64': !Sub |
+          #!/bin/bash -ex
+          sudo hostname ${env}-${space}-nat-0
+          echo ${env}-${space}-nat-0 > /etc/hostname
+          sudo apt update
+          sudo apt -y install python3-pip python-setuptools awscli
+          sudo pip3 install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
+          sudo /usr/local/bin/cfn-init -v --stack ${AWS::StackName} --resource NatInstance --region ${AWS::Region}
+          sudo /usr/local/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource NatInstance --region ${AWS::Region}
 
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          default: [ Install ]
+
+        Install:
+          files:
+            "/usr/local/bin/setup-iptables.sh":
+              mode: "000700"
+              owner: "root"
+              group: "root"
+              content: !Sub |
+                #!/usr/bin/env bash
+                set -ex
+                /sbin/iptables -t nat -A POSTROUTING -s 10.${cidrx}.110.0/24 -o eth0 -j MASQUERADE
+                /sbin/iptables -t nat -A POSTROUTING -s 10.${cidrx}.111.0/24 -o eth0 -j MASQUERADE
+
+            "/etc/systemd/system/setup-iptables.service":
+              mode: "000700"
+              owner: "root"
+              group: "root"
+              content: |
+                [Service]
+                User=root
+                ExecStart=/usr/local/bin/setup-iptables.sh
+                [Install]
+                WantedBy=default.target
+
+          commands:
+            01_setup_forwarding:
+              command: "sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf"
+            02_enable_forwarding:
+              command: "echo 1 > /proc/sys/net/ipv4/ip_forward"
+            03_enable_setup-iptables:
+              command: "systemctl enable setup-iptables"
+            04_start_setup-iptables:
+              command: "systemctl start setup-iptables"
 
 # private routes ####################
   PrivateRouteTable:
