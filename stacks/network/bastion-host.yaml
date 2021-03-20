@@ -36,7 +36,7 @@ Parameters:
 Mappings:
   BastionHostAMI:
     us-east-1:
-      HVM64: ami-047a51fa27710816e
+      HVM64: ami-042e8287309f5df03
 
 
 ####### RESOURCES
@@ -89,25 +89,67 @@ Resources:
       UserData:
         'Fn::Base64': !Sub |
           #!/bin/bash -ex
-           yum update -y aws-cfn-bootstrap
-          /opt/aws/bin/cfn-init -v -s ${AWS::StackName} -r BastionHost --region ${AWS::Region}
+          sudo apt update
+          sudo apt -y install python3-pip python-setuptools awscli
+          sudo pip3 install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
+          sudo /usr/local/bin/cfn-init -v --stack ${AWS::StackName} --resource BastionHost --region ${AWS::Region}
+          sudo /usr/local/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource BastionHost --region ${AWS::Region}
 
     Metadata:
       AWS::CloudFormation::Init:
         configSets:
-          default: [ Install ]
+          default: [ Init, Install ]
+
+        Init:
+          files:
+            "/etc/systemd/system/cfn-hup.service":
+              mode: "000700"
+              owner: "root"
+              group: "root"
+              content: |
+                [Service]
+                User=root
+                ExecStart=/usr/local/bin/cfn-hup
+                [Install]
+                WantedBy=default.target
+
+            "/etc/cfn/cfn-hup.conf":
+              mode: "000700"
+              owner: "root"
+              group: "root"
+              content: !Sub |
+                [main]
+                stack=${AWS::StackName}
+
+            "/etc/cfn/hooks.d/cfn-auto-reloader.conf":
+              content: !Sub |
+                [cfn-auto-reloader-hook]
+                triggers=post.update
+                path=Resources.BastionHost.Metadata.AWS::CloudFormation::Init
+                action=/usr/local/bin/cfn-init -v --stack ${AWS::StackName} --resource BastionHost --region ${AWS::Region}
+                runas=root
+              mode: "000400"
+              owner: "root"
+              group: "root"
+
+          commands:
+            01_enable_cfn-hup:
+              command: "systemctl enable cfn-hup"
+            02_start_cfn-hup:
+              command: "systemctl start cfn-hup"
 
         Install:
           files:
-            "/home/ec2-user/update-route53-record.sh":
+            "/usr/local/bin/update-route53-record.sh":
               mode: "000700"
-              owner: "ec2-user"
-              group: "ec2-user"
+              owner: "root"
+              group: "root"
               content: !Sub |
                 #!/usr/bin/env bash
                 set -ex
                 sleep 10
-                BASE_DNS=$(aws route53 get-hosted-zone --id ${BastionHostRoute53Zone} --query "HostedZone.Name" --output text)
+                ROUTE53_ZONE="${BastionHostRoute53Zone}"
+                BASE_DNS=$(aws route53 get-hosted-zone --id $ROUTE53_ZONE --query "HostedZone.Name" --output text)
                 DNS="${env}-${space}.${!BASE_DNS}"
                 IP=$(curl http://instance-data/latest/meta-data/public-ipv4)
                 cat > /tmp/update_record.json <<EOF
@@ -129,24 +171,24 @@ Resources:
                   ]
                 }
                 EOF
-                aws route53 change-resource-record-sets --hosted-zone-id ${BastionHostRoute53Zone} --change-batch file:///tmp/update_record.json
+                aws route53 change-resource-record-sets --hosted-zone-id $ROUTE53_ZONE --change-batch file:///tmp/update_record.json
+
             "/etc/systemd/system/update-route53-record.service":
               mode: "000700"
-              owner: "ec2-user"
-              group: "ec2-user"
+              owner: "root"
+              group: "root"
               content: |
                 [Service]
-                User=ec2-user
-                ExecStart=/home/ec2-user/update-route53-record.sh
+                User=root
+                ExecStart=/usr/local/bin/update-route53-record.sh
                 [Install]
                 WantedBy=default.target
-          services:
-            sysvinit:
-              update-route53-record:
-                enabled: "true"
-                ensureRunning: "true"
-                files:
-                  - "/home/ec2-user/update-route53-record.sh"
+
+          commands:
+            01_enable_update-route53-record:
+              command: "systemctl enable update-route53-record"
+            02_start_update-route53-record:
+              command: "systemctl start update-route53-record"
 
 ####### OUTPUTS
 Outputs:
