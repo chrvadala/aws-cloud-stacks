@@ -11,7 +11,12 @@ AWS CloudFormation stacks that speed-up projects development.
 
 
 ## Network
-This network stack is optimized for development purposes and leverages on resources that has low cost when turned off. Network stack set up the following resources:
+This network stack is optimized for development purposes and leverages on resources that has low cost when turned off. 
+```
+https://s3.amazonaws.com/chrvadala.aws-cloud-stacks/public/network/network-latest.yml
+```
+
+Network stack set up the following resources:
 - *VPC*
 - *2 Public Subnets*
 - *2 Private Subnets*
@@ -26,7 +31,7 @@ This network stack is optimized for development purposes and leverages on resour
 | env                    | Environment type (one of dev, stg, prod)                                                      |
 | space                  | Environment name                                                                              |
 | cidrx                  | Number that defines the second octect of the VPC Cidr Block (10.x.0.0/16)                     |
-| TrustedNetworks        | Prefix List about trusted internet subnets that can connect toward the Bastion Host           |
+| TrustedNetworks        | VPC Prefix List that contains trusted subnets that can connect to the Bastion Host            |
 | BastionHostKeyName     | SSH Key that grants access to Bastion Host                                                    |
 | BastionHostRoute53Zone | Route 53 Zone where the Bastion Host register its DNS public name (ex. dev-space1.domain.tld) |
 
@@ -40,6 +45,8 @@ This network stack is optimized for development purposes and leverages on resour
 | PublicSubnet1  | `${env}-${space}-PublicSubnet1`  | Public Subnet 1 Id               |
 | PrivateSubnet1 | `${env}-${space}-PrivateSubnet1` | Private Subnet 1 Id              |
 
+
+
 ## Commands
 
 ### Validate stacks
@@ -47,7 +54,7 @@ This network stack is optimized for development purposes and leverages on resour
 ./validate.sh
 ```
 
-### Deploy Network Stack
+### Deploy Network Stack from Source
 ```shell
   cp network.json.dist <stack-name>-network.json
   STACK=<stack-name> BUCKET=<bucket-name> ./deploy-network.sh
