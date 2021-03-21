@@ -7,31 +7,31 @@ Parameters:
       - dev
       - stg
       - prod
-    Description: Environment type (one of dev, stg, prod)
+    Description: Environment type (one of dev, stg, prod).
 
   space:
     Type: String
-    Description: Environment name
+    Description: Environment name (alphanumeric only).
     AllowedPattern: ^[a-z0-9]+$
 
   cidrx:
     Type: Number
-    Description: Number that defines the second octect of the VPC Cidr Block (10.x.0.0/16)
+    Description: Number (0-254) that defines the second octect of the VPC Cidr Block (10.x.0.0/16).
     MinValue: 0
     MaxValue: 254
     Default: 0
 
   TrustedNetworks:
     Type: String
-    Description: Prefix List about trusted internet subnets that can connect toward the Bastion Host
+    Description: VPC Prefix List ID that contains trusted subnets that can connect to the Bastion Host.
 
   BastionHostKeyName:
     Type: AWS::EC2::KeyPair::KeyName
-    Description: SSH Key that grants access to Bastion Host
+    Description: SSH Key that grants access to Bastion Host.
 
   BastionHostRoute53Zone:
     Type: AWS::Route53::HostedZone::Id
-    Description: Route 53 Zone where the Bastion Host register its DNS public name (ex. dev-space1.domain.tld)
+    Description: Route 53 Zone where the Bastion Host register its DNS public name (ex. dev-space1.domain.tld).
 
 Resources:
   Vpc:
