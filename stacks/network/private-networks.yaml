@@ -63,11 +63,12 @@ Resources:
       InstanceType: t2.micro
       SourceDestCheck: false
       BlockDeviceMappings:
-        - DeviceName: /dev/xvda
+        - DeviceName: /dev/sda1
           Ebs:
             DeleteOnTermination: True
             VolumeSize: 8
             VolumeType: standard
+            Encrypted: true
       NetworkInterfaces:
         - AssociatePublicIpAddress: true
           DeviceIndex: "0"
