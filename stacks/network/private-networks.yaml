@@ -32,7 +32,9 @@ Parameters:
 Mappings:
   NatInstanceAMI:
     us-east-1:
-      "HVM64": ami-042e8287309f5df03
+      "HVM64": ami-04505e74c0741db8d
+    eu-central-1:
+      "HVM64": ami-0d527b8c289b4af7f
 
 Resources:
 # NAT Gateway ####################
