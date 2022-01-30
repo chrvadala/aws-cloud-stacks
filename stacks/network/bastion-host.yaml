@@ -200,3 +200,6 @@ Outputs:
   BastionHost:
     Description: BastionHost
     Value: !Ref BastionHost
+  BastionHostSecurityGroup:
+    Description: BastionHostSecurityGroup
+    Value: !Ref BastionHostSecurityGroup

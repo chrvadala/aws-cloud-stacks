@@ -157,3 +157,9 @@ Outputs:
     Value: !GetAtt PrivateNetworks.Outputs.PrivateSubnet1
     Export:
       Name: !Sub "${env}-${space}-PrivateSubnet1"
+
+  BastionHostSecurityGroup:
+    Description: Bastion Security Group
+    Value: !GetAtt BastionHost.Outputs.BastionHostSecurityGroup
+    Export:
+      Name: !Sub "${env}-${space}-BastionHostSecurityGroup"
