@@ -30,7 +30,7 @@ Parameters:
 
 ####### MAPPINGS
 Mappings:
-  BastionHostAMI:
+  ServerAMI:
     us-east-1:
       "HVM64": ami-04505e74c0741db8d
     eu-central-1:
@@ -59,7 +59,7 @@ Resources:
   Server: 
     Type: AWS::EC2::Instance
     Properties: 
-      ImageId: ami-04505e74c0741db8d
+      ImageId: !FindInMap [ ServerAMI, !Ref "AWS::Region", HVM64 ]
       InstanceType: t3.micro
       KeyName: !Ref ServerKeyName
       BlockDeviceMappings:
