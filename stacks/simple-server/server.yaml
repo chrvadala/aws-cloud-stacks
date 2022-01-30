@@ -1,0 +1,94 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+####### PARAMETERS
+Parameters:
+  env:
+    Type: String
+    AllowedValues:
+      - dev
+      - stg
+      - prod
+
+  space:
+    Type: String
+    AllowedPattern: ^[a-z0-9]+$
+
+  ServerKeyName:
+    Type: String
+
+  ServerName:
+    Type: String
+  
+  Vpc:
+    Type: AWS::EC2::VPC::Id
+
+  SubnetId:
+    Type: String
+  
+  SecurityGroupTrafficSource:
+    Type: String
+
+####### MAPPINGS
+Mappings:
+  BastionHostAMI:
+    us-east-1:
+      "HVM64": ami-04505e74c0741db8d
+    eu-central-1:
+      "HVM64": ami-0d527b8c289b4af7f
+
+
+####### RESOURCES
+Resources:
+  ServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref Vpc
+      GroupDescription: Allow outbound traffic
+      SecurityGroupIngress:
+        - SourceSecurityGroupId: !Ref SecurityGroupTrafficSource
+          IpProtocol: "-1"
+          Description: Allow incoming traffic from SecurityGroupTrafficSource
+      Tags:
+        - Key: Name
+          Value: !Sub "${env}-${space}-${ServerName}"
+        - Key: env
+          Value: !Ref env
+        - Key: space
+          Value: !Ref space
+
+  Server: 
+    Type: AWS::EC2::Instance
+    Properties: 
+      ImageId: ami-04505e74c0741db8d
+      InstanceType: t3.micro
+      KeyName: !Ref ServerKeyName
+      BlockDeviceMappings:
+      - DeviceName: /dev/sda1
+        Ebs:
+          DeleteOnTermination: True
+          VolumeSize: 8
+          VolumeType: standard
+          Encrypted: true
+      NetworkInterfaces:
+        - DeviceIndex: "0"
+          GroupSet:
+            - !Ref ServerSecurityGroup
+          SubnetId: !Ref SubnetId
+      Tags:
+        - Key: Name
+          Value: !Sub "${env}-${space}-${ServerName}"
+        - Key: env
+          Value: !Ref env
+        - Key: space
+          Value: !Ref space
+      UserData:
+        'Fn::Base64': !Sub |
+          #!/bin/bash -ex
+          sudo hostname ${env}-${space}-${ServerName}
+          echo ${env}-${space}-${ServerName} > /etc/hostname
+
+####### OUTPUTS
+Outputs:
+  PrivateIp:
+    Description: PrivateIp
+    Value: !GetAtt Server.PrivateIp

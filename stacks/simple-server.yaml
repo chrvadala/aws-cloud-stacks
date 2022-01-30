@@ -1,0 +1,79 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Simple Server
+Parameters:
+  env:
+    Type: String
+    AllowedValues:
+      - dev
+      - stg
+      - prod
+
+  space:
+    Type: String
+    AllowedPattern: ^[a-z0-9]+$
+  
+  ServerKeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: SSH Key that grants access to host.
+
+  ServerName:
+    Type: String
+    Description: Name of the server
+    AllowedPattern: ^[a-z0-9]+$
+
+  HostedZoneName:
+    Type: String
+    Description: Hosted zone on which the server will be available (e.g. example.com)
+    AllowedPattern: ^[a-z0-9.]+$
+
+
+####### MAPPINGS
+Resources:
+  Server:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./simple-server/server.yaml
+      Parameters:
+        env: !Ref env
+        space: !Ref space
+        ServerKeyName: !Ref ServerKeyName
+        ServerName: !Ref ServerName
+        SecurityGroupTrafficSource:
+          Fn::ImportValue:
+            !Sub "${env}-${space}-BastionHostSecurityGroup"
+          
+        Vpc: 
+          Fn::ImportValue:
+            !Sub "${env}-${space}-Vpc"
+        SubnetId:
+          Fn::ImportValue:
+            !Sub "${env}-${space}-PrivateSubnet0"
+
+      Tags:
+        - Key: env
+          Value: !Ref env
+        - Key: space
+          Value: !Ref space
+
+  Dns:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./simple-server/dns.yaml
+      Parameters:
+        env: !Ref env
+        space: !Ref space
+        ServerPrivateIp: !GetAtt Server.Outputs.PrivateIp
+        ServerName: !Ref ServerName
+        HostedZoneName: !Ref HostedZoneName
+      Tags:
+        - Key: env
+          Value: !Ref env
+        - Key: space
+          Value: !Ref space
+
+Outputs:
+  ServerDNS:
+    Description: Server fully qualified name (e.g. myserver.example.com)
+    Value: !GetAtt Dns.Outputs.ServerDNS
+    Export:
+      Name: !Sub "${env}-${space}-${ServerName}-ServerDNS"

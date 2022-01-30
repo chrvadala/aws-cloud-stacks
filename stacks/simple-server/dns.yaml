@@ -1,0 +1,41 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+####### PARAMETERS
+Parameters:
+  env:
+    Type: String
+    AllowedValues:
+      - dev
+      - stg
+      - prod
+
+  space:
+    Type: String
+    AllowedPattern: ^[a-z0-9]+$
+
+  ServerPrivateIp: 
+    Type: String
+
+  ServerName: 
+    Type: String
+
+  HostedZoneName:
+    Type: String
+
+####### RESOURCES
+Resources:
+  ServerDnsRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Name: !Join ['', [!Ref env, '-', !Ref space, '-', !Ref ServerName, '.', !Ref HostedZoneName]]
+      HostedZoneName: !Ref HostedZoneName
+      Comment: DNS name for my instance.
+      Type: A
+      TTL: 900
+      ResourceRecords:
+      - !Ref ServerPrivateIp
+
+Outputs:
+  ServerDNS:
+    Description: Server full qualified name
+    Value: !Ref ServerDnsRecord

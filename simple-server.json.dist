@@ -1,0 +1,22 @@
+[
+    {
+        "ParameterKey" : "env",
+        "ParameterValue" : ""
+    },
+    {
+        "ParameterKey" : "space",
+        "ParameterValue" : ""
+    },
+    {
+        "ParameterKey" : "ServerKeyName",
+        "ParameterValue" : ""
+    },
+    {
+        "ParameterKey": "ServerName",
+        "ParameterValue": ""
+    },
+    {
+        "ParameterKey": "HostedZoneName",
+        "ParameterValue": ""
+    }
+]
